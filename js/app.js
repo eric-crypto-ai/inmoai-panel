@@ -235,12 +235,13 @@ const app = {
                     <p class="text-sm text-gray-700 bg-blue-50 p-3 rounded-lg">${observaciones}</p>
                 </div>
             ` : ''}
-            ${notas ? `
-                <div class="mb-4">
-                    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Notas</p>
-                    <p class="text-sm text-gray-700 bg-yellow-50 p-3 rounded-lg">${notas}</p>
+            <div class="mb-4">
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Notas</p>
+                <div class="flex gap-2">
+                    <textarea id="action-notas" rows="2" class="flex-1 text-sm text-gray-700 bg-yellow-50 p-3 rounded-lg border border-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-400" placeholder="Añadir nota...">${notas}</textarea>
+                    <button onclick="app.actionNotas()" class="self-end bg-yellow-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-yellow-600 transition whitespace-nowrap">Guardar</button>
                 </div>
-            ` : ''}
+            </div>
         `;
 
         // Reset action controls
@@ -311,6 +312,16 @@ const app = {
         selectEl.selectedIndex = 0;
         // Execute the action with params
         this._sendAction('estado', { nuevo_estado: nuevoEstado });
+    },
+
+    // -------------------------------------------
+    // Acción: guardar notas
+    // -------------------------------------------
+    actionNotas() {
+        const textarea = document.getElementById('action-notas');
+        if (!textarea || !this.selectedLead) return;
+        const notas = textarea.value.trim();
+        this._sendAction('notas', { notas: notas });
     },
 
     // -------------------------------------------
