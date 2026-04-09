@@ -284,6 +284,10 @@ const app = {
                     <button onclick="app.actionNotas()" class="self-end bg-yellow-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-yellow-600 transition whitespace-nowrap">Guardar</button>
                 </div>
             </div>
+            <div id="lead-actividad" class="mb-4">
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Historial de actividad</p>
+                <div class="text-sm text-gray-400 italic">Cargando actividad...</div>
+            </div>
         `;
 
         // Reset action controls
@@ -297,6 +301,106 @@ const app = {
         if (visitaHora) visitaHora.value = '10:00';
 
         document.getElementById('lead-modal').classList.remove('hidden');
+
+        this.loadActividad(lead.lead_id);
+    },
+
+    async loadActividad(leadId) {
+        const container = document.getElementById('lead-actividad');
+        if (!container || CONFIG.DEMO_MODE) return;
+
+        try {
+            const res = await fetch(`${CONFIG.WEBHOOK_GET_ACTIVIDAD}?lead_id=${encodeURIComponent(leadId)}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const events = await res.json();
+
+            if (!events.length) {
+                container.innerHTML = `
+                    <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Historial de actividad</p>
+                    <p class="text-sm text-gray-400 italic">Sin actividad registrada</p>`;
+                return;
+            }
+
+            container.innerHTML = `
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Historial de actividad (${events.length})</p>
+                <div class="max-h-48 overflow-y-auto space-y-1">
+                    ${events.map(e => {
+                        const desc = this.formatEvento(e);
+                        const tiempo = this.timeAgo(e.fecha_hora);
+                        const icon = this.eventoIcon(e.tipo_evento);
+                        const statusColor = e.estado === 'ERROR' ? 'text-red-500' : 'text-gray-500';
+                        return `<div class="flex items-start gap-2 text-sm border-l-2 ${e.estado === 'ERROR' ? 'border-red-300' : 'border-blue-200'} pl-2 py-1">
+                            <span class="shrink-0">${icon}</span>
+                            <div class="min-w-0">
+                                <span class="font-medium text-gray-700">${desc}</span>
+                                <span class="${statusColor} text-xs ml-1">${tiempo}</span>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+        } catch (err) {
+            container.innerHTML = `
+                <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Historial de actividad</p>
+                <p class="text-sm text-red-400 italic">Error cargando actividad</p>`;
+        }
+    },
+
+    formatEvento(e) {
+        const tipo = e.tipo_evento || '';
+        switch (tipo) {
+            case 'cambio_estado':
+                return `Estado: ${e.valor_anterior || '?'} → ${e.valor_nuevo || '?'}`;
+            case 'visita_agendada':
+                return `Visita agendada`;
+            case 'asignacion_agente':
+                return `Agente: ${e.valor_nuevo || '?'}`;
+            case 'whatsapp_enviado':
+                return `WhatsApp enviado`;
+            case 'email_enviado':
+                return `Email enviado`;
+            case 'actualizacion_notas':
+                return `Notas actualizadas`;
+            case 'lead_creado':
+                return `Lead creado`;
+            case 'deduplicacion_email':
+                return `Deduplicado por email`;
+            case 'deduplicacion_telefono':
+                return `Deduplicado por teléfono`;
+            default:
+                return e.detalle || tipo || 'Evento';
+        }
+    },
+
+    eventoIcon(tipo) {
+        const icons = {
+            'cambio_estado': '\u{1F504}',
+            'visita_agendada': '\u{1F4C5}',
+            'asignacion_agente': '\u{1F464}',
+            'whatsapp_enviado': '\u{1F4AC}',
+            'email_enviado': '\u{2709}',
+            'actualizacion_notas': '\u{1F4DD}',
+            'lead_creado': '\u{2728}',
+            'whatsapp_error': '\u{26A0}',
+            'email_error': '\u{26A0}',
+            'error_visita_sin_fecha': '\u{26A0}',
+            'error_calendar': '\u{26A0}',
+        };
+        return icons[tipo] || '\u{25CF}';
+    },
+
+    timeAgo(fechaStr) {
+        if (!fechaStr) return '';
+        const fecha = new Date(fechaStr.replace(' ', 'T'));
+        const now = new Date();
+        const diffMs = now - fecha;
+        const mins = Math.floor(diffMs / 60000);
+        if (mins < 1) return 'ahora';
+        if (mins < 60) return `hace ${mins}m`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `hace ${hours}h`;
+        const days = Math.floor(hours / 24);
+        if (days < 7) return `hace ${days}d`;
+        return fechaStr.split(' ')[0];
     },
 
     closeModal() {

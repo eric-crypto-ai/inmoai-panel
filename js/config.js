@@ -10,6 +10,9 @@ const CONFIG = {
     // Webhook POST para ejecutar acciones sobre un lead
     WEBHOOK_POST_ACTION: 'https://primary-production-2cf7.up.railway.app/webhook/panel-action',
 
+    // Webhook GET para leer actividad de un lead
+    WEBHOOK_GET_ACTIVIDAD: 'https://primary-production-2cf7.up.railway.app/webhook/panel-actividad',
+
     // Intervalo de auto-refresh en ms (0 = desactivado)
     AUTO_REFRESH_INTERVAL: 0,
 
