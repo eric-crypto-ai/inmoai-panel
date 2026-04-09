@@ -5,6 +5,7 @@
 const app = {
     leads: [],
     filteredLeads: [],
+    acciones: [],
     selectedLead: null,
     filteringVencidos: false,
     sortField: null,
@@ -15,6 +16,7 @@ const app = {
     // -------------------------------------------
     init() {
         this.loadLeads();
+        this.loadConfigAcciones();
         if (CONFIG.AUTO_REFRESH_INTERVAL > 0) {
             setInterval(() => this.loadLeads(), CONFIG.AUTO_REFRESH_INTERVAL);
         }
@@ -53,6 +55,75 @@ const app = {
 
         this.filterLeads();
         this.updateStats();
+    },
+
+    // -------------------------------------------
+    // Cargar acciones disponibles desde config_acciones
+    // -------------------------------------------
+    async loadConfigAcciones() {
+        if (CONFIG.DEMO_MODE) {
+            this.acciones = [
+                { accion_id: 'marcar_caliente', nombre_accion: 'Marcar como caliente', requiere_confirmacion: false, necesita_fecha: false },
+                { accion_id: 'contactado', nombre_accion: 'Marcar como contactado', requiere_confirmacion: false, necesita_fecha: false },
+                { accion_id: 'agendar_visita', nombre_accion: 'Agendar visita', requiere_confirmacion: false, necesita_fecha: true },
+                { accion_id: 'descartar_lead', nombre_accion: 'Descartar lead', requiere_confirmacion: true, necesita_fecha: false },
+            ];
+            this.populateAccionesDropdown();
+            return;
+        }
+        try {
+            const res = await fetch(CONFIG.WEBHOOK_GET_CONFIG_ACCIONES);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            this.acciones = await res.json();
+            this.populateAccionesDropdown();
+        } catch (err) {
+            console.error('Error cargando config_acciones:', err);
+        }
+    },
+
+    populateAccionesDropdown() {
+        const select = document.getElementById('action-accion');
+        if (!select) return;
+        select.innerHTML = '<option value="" disabled selected>Ejecutar acción...</option>';
+        this.acciones.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.accion_id;
+            opt.textContent = a.nombre_accion;
+            select.appendChild(opt);
+        });
+    },
+
+    // -------------------------------------------
+    // Acción genérica desde dropdown de acciones
+    // -------------------------------------------
+    actionAccion(selectEl) {
+        const accionId = selectEl.value;
+        if (!accionId || !this.selectedLead) {
+            selectEl.selectedIndex = 0;
+            return;
+        }
+        selectEl.selectedIndex = 0;
+
+        const config = this.acciones.find(a => a.accion_id === accionId);
+        if (!config) return;
+
+        if (config.requiere_confirmacion) {
+            if (!confirm(`¿Confirmar acción "${config.nombre_accion}" sobre este lead?`)) return;
+        }
+
+        let params = {};
+        if (config.necesita_fecha || accionId === 'agendar_visita') {
+            const fecha = document.getElementById('action-visita-fecha').value;
+            const hora = document.getElementById('action-visita-hora').value || '10:00';
+            if (!fecha) {
+                alert('Selecciona una fecha para la visita');
+                return;
+            }
+            params.fecha_visita = fecha;
+            params.hora_visita = hora;
+        }
+
+        this._sendAction(accionId, params);
     },
 
     // -------------------------------------------
@@ -153,7 +224,7 @@ const app = {
         document.getElementById('stat-nuevos').textContent =
             this.leads.filter(l => l.estado_lead === 'Nuevo').length;
         document.getElementById('stat-seguimiento').textContent =
-            this.leads.filter(l => l.estado_lead === 'Seguimiento' || l.estado_lead === 'Contactado').length;
+            this.leads.filter(l => ['Contactado', 'Caliente', 'Templado', 'Frío', 'Seguimiento', 'Información enviada', 'Oferta enviada'].includes(l.estado_lead)).length;
         document.getElementById('stat-visitas').textContent =
             this.leads.filter(l => l.estado_lead === 'Visita agendada').length;
         const vencidos = this.leads.filter(l => this.isVencido(l)).length;
@@ -242,7 +313,6 @@ const app = {
             { label: 'Prioridad', value: lead.prioridad },
             { label: 'Lead Score', value: lead.lead_score },
             { label: 'Agente', value: lead.agente_asignado },
-            { label: 'Seguimiento', value: lead.seguimiento },
             { label: 'Próxima acción', value: lead.proxima_accion },
             { label: 'Fecha próxima acción', value: lead.fecha_proxima_accion },
             { label: 'Último contacto', value: lead.ultimo_contacto },
@@ -291,8 +361,8 @@ const app = {
         `;
 
         // Reset action controls
-        const estadoSelect = document.getElementById('action-estado');
-        if (estadoSelect) estadoSelect.selectedIndex = 0;
+        const accionSelect = document.getElementById('action-accion');
+        if (accionSelect) accionSelect.selectedIndex = 0;
         const agenteSelect = document.getElementById('action-agente');
         if (agenteSelect) agenteSelect.selectedIndex = 0;
         const visitaFecha = document.getElementById('action-visita-fecha');
@@ -360,6 +430,8 @@ const app = {
                 return `Email enviado`;
             case 'actualizacion_notas':
                 return `Notas actualizadas`;
+            case 'accion_ejecutada':
+                return e.detalle || `Acción: ${e.valor_nuevo || '?'}`;
             case 'lead_creado':
                 return `Lead creado`;
             case 'deduplicacion_email':
@@ -384,6 +456,7 @@ const app = {
             'email_error': '\u{26A0}',
             'error_visita_sin_fecha': '\u{26A0}',
             'error_calendar': '\u{26A0}',
+            'accion_ejecutada': '\u{26A1}',
         };
         return icons[tipo] || '\u{25CF}';
     },
@@ -413,52 +486,17 @@ const app = {
     // -------------------------------------------
     async action(type) {
         if (!this.selectedLead) return;
-
-        // Recoger params según tipo de acción
         let params = {};
-
-        if (type === 'estado') {
-            // Estado se maneja desde actionEstado()
-            return;
-        }
-
-        if (type === 'agente') {
-            // Agente se maneja desde actionAgente()
-            return;
-        }
-
-        if (type === 'visita') {
-            // Visita se maneja desde actionVisita()
-            return;
-        }
-
         if (type === 'whatsapp') {
-            const mensaje = prompt(
-                'Mensaje personalizado (dejar vacío para mensaje automático):',
-                ''
-            );
+            const mensaje = prompt('Mensaje personalizado (dejar vacío para mensaje automático):', '');
             if (mensaje !== null && mensaje !== '') {
                 params.mensaje_custom = mensaje;
             }
         }
-
         this._sendAction(type, params);
     },
 
-    // -------------------------------------------
-    // Acción: cambiar estado desde dropdown
-    // -------------------------------------------
-    actionEstado(selectEl) {
-        const nuevoEstado = selectEl.value;
-        if (!nuevoEstado || !this.selectedLead) {
-            selectEl.selectedIndex = 0;
-            return;
-        }
-        // Reset select for next use
-        selectEl.selectedIndex = 0;
-        // Execute the action with params
-        this._sendAction('estado', { nuevo_estado: nuevoEstado });
-    },
+    // (actionEstado eliminado — reemplazado por actionAccion)
 
     // -------------------------------------------
     // Acción: guardar notas
@@ -470,23 +508,7 @@ const app = {
         this._sendAction('notas', { notas: notas });
     },
 
-    // -------------------------------------------
-    // Acción: agendar visita desde inputs date/time
-    // -------------------------------------------
-    actionVisita() {
-        const fechaEl = document.getElementById('action-visita-fecha');
-        const horaEl = document.getElementById('action-visita-hora');
-        const fecha = fechaEl.value;
-        const hora = horaEl.value || '10:00';
-
-        if (!fecha) {
-            alert('Selecciona una fecha para la visita');
-            return;
-        }
-        if (!this.selectedLead) return;
-
-        this._sendAction('visita', { fecha_visita: fecha, hora_visita: hora });
-    },
+    // (actionVisita eliminado — integrado en actionAccion con agendar_visita)
 
     // -------------------------------------------
     // Acción: asignar agente desde dropdown
@@ -542,8 +564,14 @@ const app = {
         const classes = {
             'Nuevo': 'bg-blue-100 text-blue-700',
             'Contactado': 'bg-cyan-100 text-cyan-700',
+            'Caliente': 'bg-red-100 text-red-700',
+            'Templado': 'bg-orange-100 text-orange-700',
+            'Frío': 'bg-sky-100 text-sky-700',
             'Seguimiento': 'bg-amber-100 text-amber-700',
+            'Información enviada': 'bg-violet-100 text-violet-700',
             'Visita agendada': 'bg-green-100 text-green-700',
+            'Visitado': 'bg-teal-100 text-teal-700',
+            'Oferta enviada': 'bg-indigo-100 text-indigo-700',
             'Cerrado Ganado': 'bg-emerald-100 text-emerald-800',
             'Cerrado Perdido': 'bg-red-100 text-red-700',
             'Descartado': 'bg-gray-100 text-gray-500',
@@ -581,7 +609,6 @@ const app = {
                 prioridad: 'Alta',
                 lead_score: 80,
                 agente_asignado: 'Sin Asignar',
-                seguimiento: 'Pendiente de revisar',
                 proxima_accion: 'Llamar',
                 fecha_proxima_accion: '2026-04-09',
                 ultimo_contacto: '',
@@ -608,7 +635,6 @@ const app = {
                 prioridad: 'Alta',
                 lead_score: 90,
                 agente_asignado: 'Ana Pérez',
-                seguimiento: 'En contacto',
                 proxima_accion: 'Agendar visita',
                 fecha_proxima_accion: '2026-04-10',
                 ultimo_contacto: '2026-04-07',
@@ -635,7 +661,6 @@ const app = {
                 prioridad: 'Baja',
                 lead_score: 30,
                 agente_asignado: 'Sin Asignar',
-                seguimiento: 'Pendiente de revisar',
                 proxima_accion: 'Enviar email',
                 fecha_proxima_accion: '2026-04-09',
                 ultimo_contacto: '',
@@ -662,7 +687,6 @@ const app = {
                 prioridad: 'Media-Alta',
                 lead_score: 70,
                 agente_asignado: 'Ana Pérez',
-                seguimiento: 'Visita programada',
                 proxima_accion: 'Realizar visita',
                 fecha_proxima_accion: '2026-04-11',
                 ultimo_contacto: '2026-04-06',
@@ -689,7 +713,6 @@ const app = {
                 prioridad: 'Media',
                 lead_score: 60,
                 agente_asignado: 'Sin Asignar',
-                seguimiento: 'Esperando respuesta',
                 proxima_accion: 'Escribir WhatsApp',
                 fecha_proxima_accion: '2026-04-09',
                 ultimo_contacto: '2026-04-05',
