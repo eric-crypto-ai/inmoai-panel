@@ -220,8 +220,46 @@ const app = {
     async action(type) {
         if (!this.selectedLead) return;
 
+        // Recoger params según tipo de acción
+        let params = {};
+
+        if (type === 'estado') {
+            const nuevo = prompt(
+                'Nuevo estado del lead:\n\n' +
+                '1. Contactado\n2. Seguimiento\n3. Visita agendada\n4. Cerrado Ganado\n5. Cerrado Perdido\n6. Descartado\n\n' +
+                'Escribe el estado exacto:'
+            );
+            if (!nuevo) return;
+            params.nuevo_estado = nuevo;
+        }
+
+        if (type === 'agente') {
+            const agente = prompt('Nombre del agente a asignar:');
+            if (!agente) return;
+            params.agente = agente;
+        }
+
+        if (type === 'visita') {
+            const fecha = prompt('Fecha de la visita (YYYY-MM-DD):');
+            if (!fecha) return;
+            const hora = prompt('Hora de la visita (HH:MM):', '10:00');
+            if (!hora) return;
+            params.fecha_visita = fecha;
+            params.hora_visita = hora;
+        }
+
+        if (type === 'whatsapp') {
+            const mensaje = prompt(
+                'Mensaje personalizado (dejar vacío para mensaje automático):',
+                ''
+            );
+            if (mensaje !== null && mensaje !== '') {
+                params.mensaje_custom = mensaje;
+            }
+        }
+
         if (CONFIG.DEMO_MODE) {
-            alert(`[DEMO] Acción "${type}" sobre lead ${this.selectedLead.lead_id}\n\nConecta los webhooks de n8n para ejecutar acciones reales.`);
+            alert(`[DEMO] Acción "${type}" sobre lead ${this.selectedLead.lead_id}\nParams: ${JSON.stringify(params)}\n\nConecta los webhooks de n8n para ejecutar acciones reales.`);
             return;
         }
 
@@ -233,11 +271,13 @@ const app = {
                     action: type,
                     lead_id: this.selectedLead.lead_id,
                     lead: this.selectedLead,
+                    params: params,
                 }),
             });
 
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            alert(`Acción "${type}" ejecutada correctamente`);
+            const result = await response.json();
+            alert(result.message || `Acción "${type}" ejecutada correctamente`);
             this.closeModal();
             this.loadLeads();
         } catch (error) {
