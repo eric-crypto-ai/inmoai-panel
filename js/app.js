@@ -6,6 +6,7 @@ const app = {
     leads: [],
     filteredLeads: [],
     selectedLead: null,
+    filteringVencidos: false,
 
     // -------------------------------------------
     // Inicialización
@@ -53,12 +54,25 @@ const app = {
     },
 
     // -------------------------------------------
+    // Utilidades
+    // -------------------------------------------
+    isVencido(lead) {
+        if (!lead.fecha_proxima_accion) return false;
+        const estado = lead.estado_lead || '';
+        if (estado === 'Cerrado Ganado' || estado === 'Cerrado Perdido' || estado === 'Descartado') return false;
+        const fechaStr = lead.fecha_proxima_accion.split(' ')[0];
+        const hoy = new Date().toISOString().split('T')[0];
+        return fechaStr < hoy;
+    },
+
+    // -------------------------------------------
     // Filtros
     // -------------------------------------------
     filterLeads() {
         const search = document.getElementById('filter-search').value.toLowerCase();
         const estado = document.getElementById('filter-estado').value;
         const prioridad = document.getElementById('filter-prioridad').value;
+        const agente = document.getElementById('filter-agente').value;
 
         this.filteredLeads = this.leads.filter(lead => {
             const matchSearch = !search ||
@@ -68,10 +82,23 @@ const app = {
                 (lead.telefono || '').includes(search);
             const matchEstado = !estado || lead.estado_lead === estado;
             const matchPrioridad = !prioridad || lead.prioridad === prioridad;
-            return matchSearch && matchEstado && matchPrioridad;
+            const matchAgente = !agente || lead.agente_asignado === agente;
+            const matchVencidos = !this.filteringVencidos || this.isVencido(lead);
+            return matchSearch && matchEstado && matchPrioridad && matchAgente && matchVencidos;
         });
 
         this.renderTable();
+    },
+
+    toggleFilterVencidos() {
+        this.filteringVencidos = !this.filteringVencidos;
+        const card = document.getElementById('stat-vencidos-card');
+        if (this.filteringVencidos) {
+            card.classList.add('ring-2', 'ring-red-500', 'bg-red-50');
+        } else {
+            card.classList.remove('ring-2', 'ring-red-500', 'bg-red-50');
+        }
+        this.filterLeads();
     },
 
     // -------------------------------------------
@@ -85,6 +112,16 @@ const app = {
             this.leads.filter(l => l.estado_lead === 'Seguimiento' || l.estado_lead === 'Contactado').length;
         document.getElementById('stat-visitas').textContent =
             this.leads.filter(l => l.estado_lead === 'Visita agendada').length;
+        const vencidos = this.leads.filter(l => this.isVencido(l)).length;
+        document.getElementById('stat-vencidos').textContent = vencidos;
+        const card = document.getElementById('stat-vencidos-card');
+        if (vencidos > 0) {
+            card.classList.add('border-red-300', 'bg-red-50');
+            card.classList.remove('border-gray-100', 'bg-white');
+        } else {
+            card.classList.remove('border-red-300', 'bg-red-50');
+            card.classList.add('border-gray-100', 'bg-white');
+        }
     },
 
     // -------------------------------------------
@@ -104,7 +141,7 @@ const app = {
         }
 
         tbody.innerHTML = this.filteredLeads.map(lead => `
-            <tr class="hover:bg-gray-50 cursor-pointer transition" onclick="app.openModal('${lead.lead_id}')">
+            <tr class="${this.isVencido(lead) ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'} cursor-pointer transition" onclick="app.openModal('${lead.lead_id}')">
                 <td class="px-4 py-3">
                     <div class="font-medium text-gray-900">${lead.nombre || ''} ${lead.apellidos || ''}</div>
                     <div class="text-xs text-gray-400">${lead.lead_id || ''}</div>
@@ -127,8 +164,8 @@ const app = {
                     </span>
                 </td>
                 <td class="px-4 py-3">
-                    <div class="text-sm text-gray-700">${lead.proxima_accion || '-'}</div>
-                    <div class="text-xs text-gray-400">${lead.fecha_proxima_accion || ''}</div>
+                    <div class="text-sm ${this.isVencido(lead) ? 'text-red-600 font-semibold' : 'text-gray-700'}">${lead.proxima_accion || '-'}</div>
+                    <div class="text-xs ${this.isVencido(lead) ? 'text-red-500' : 'text-gray-400'}">${this.isVencido(lead) ? 'VENCIDA - ' : ''}${lead.fecha_proxima_accion || ''}</div>
                 </td>
                 <td class="px-4 py-3">
                     <button onclick="event.stopPropagation(); app.openModal('${lead.lead_id}')" class="text-primary hover:text-secondary text-sm font-medium">
