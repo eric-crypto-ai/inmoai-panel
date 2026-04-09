@@ -206,9 +206,15 @@ const app = {
             ` : ''}
         `;
 
-        // Reset estado dropdown
+        // Reset action controls
         const estadoSelect = document.getElementById('action-estado');
         if (estadoSelect) estadoSelect.selectedIndex = 0;
+        const agenteSelect = document.getElementById('action-agente');
+        if (agenteSelect) agenteSelect.selectedIndex = 0;
+        const visitaFecha = document.getElementById('action-visita-fecha');
+        if (visitaFecha) visitaFecha.value = '';
+        const visitaHora = document.getElementById('action-visita-hora');
+        if (visitaHora) visitaHora.value = '10:00';
 
         document.getElementById('lead-modal').classList.remove('hidden');
     },
@@ -233,18 +239,13 @@ const app = {
         }
 
         if (type === 'agente') {
-            const agente = prompt('Nombre del agente a asignar:');
-            if (!agente) return;
-            params.agente = agente;
+            // Agente se maneja desde actionAgente()
+            return;
         }
 
         if (type === 'visita') {
-            const fecha = prompt('Fecha de la visita (YYYY-MM-DD):');
-            if (!fecha) return;
-            const hora = prompt('Hora de la visita (HH:MM):', '10:00');
-            if (!hora) return;
-            params.fecha_visita = fecha;
-            params.hora_visita = hora;
+            // Visita se maneja desde actionVisita()
+            return;
         }
 
         if (type === 'whatsapp') {
@@ -273,6 +274,37 @@ const app = {
         selectEl.selectedIndex = 0;
         // Execute the action with params
         this._sendAction('estado', { nuevo_estado: nuevoEstado });
+    },
+
+    // -------------------------------------------
+    // Acción: agendar visita desde inputs date/time
+    // -------------------------------------------
+    actionVisita() {
+        const fechaEl = document.getElementById('action-visita-fecha');
+        const horaEl = document.getElementById('action-visita-hora');
+        const fecha = fechaEl.value;
+        const hora = horaEl.value || '10:00';
+
+        if (!fecha) {
+            alert('Selecciona una fecha para la visita');
+            return;
+        }
+        if (!this.selectedLead) return;
+
+        this._sendAction('visita', { fecha_visita: fecha, hora_visita: hora });
+    },
+
+    // -------------------------------------------
+    // Acción: asignar agente desde dropdown
+    // -------------------------------------------
+    actionAgente(selectEl) {
+        const agente = selectEl.value;
+        if (!agente || !this.selectedLead) {
+            selectEl.selectedIndex = 0;
+            return;
+        }
+        selectEl.selectedIndex = 0;
+        this._sendAction('agente', { agente: agente });
     },
 
     // -------------------------------------------

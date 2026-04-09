@@ -146,9 +146,14 @@
                     <button onclick="app.action('whatsapp')" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition">
                         Enviar WhatsApp
                     </button>
-                    <button onclick="app.action('visita')" class="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary transition">
-                        Agendar visita
-                    </button>
+                    <!-- Visita: fecha + hora + botón -->
+                    <div class="flex items-center gap-1">
+                        <input type="date" id="action-visita-fecha" class="border border-blue-300 rounded-lg px-2 py-2 text-sm bg-white text-gray-700 focus:ring-2 focus:ring-primary">
+                        <input type="time" id="action-visita-hora" value="10:00" class="border border-blue-300 rounded-lg px-2 py-2 text-sm bg-white text-gray-700 focus:ring-2 focus:ring-primary w-24">
+                        <button onclick="app.actionVisita()" class="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary transition whitespace-nowrap">
+                            Agendar visita
+                        </button>
+                    </div>
                     <select id="action-estado" onchange="app.actionEstado(this)" class="bg-warning text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-700 transition cursor-pointer appearance-none pr-8" style="background-image: url('data:image/svg+xml;utf8,<svg fill=\'white\' viewBox=\'0 0 20 20\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z\'/></svg>'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1.2em;">
                         <option value="" disabled selected>Cambiar estado</option>
                         <option value="Nuevo">Nuevo</option>
@@ -159,9 +164,12 @@
                         <option value="Cerrado Perdido">Cerrado Perdido</option>
                         <option value="Descartado">Descartado</option>
                     </select>
-                    <button onclick="app.action('agente')" class="bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition">
-                        Asignar agente
-                    </button>
+                    <select id="action-agente" onchange="app.actionAgente(this)" class="bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition cursor-pointer appearance-none pr-8" style="background-image: url('data:image/svg+xml;utf8,<svg fill=\'white\' viewBox=\'0 0 20 20\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z\'/></svg>'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1.2em;">
+                        <option value="" disabled selected>Asignar agente</option>
+                        <option value="Sin Asignar">Sin Asignar</option>
+                        <option value="Eric Castillo">Eric Castillo</option>
+                        <option value="Rodrigo Lopez">Rodrigo Lopez</option>
+                    </select>
                 </div>
             </div>
         </div>
