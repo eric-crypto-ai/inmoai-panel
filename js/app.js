@@ -7,6 +7,8 @@ const app = {
     filteredLeads: [],
     selectedLead: null,
     filteringVencidos: false,
+    sortField: null,
+    sortDir: 1, // 1 = asc, -1 = desc
 
     // -------------------------------------------
     // Inicialización
@@ -87,7 +89,49 @@ const app = {
             return matchSearch && matchEstado && matchPrioridad && matchAgente && matchVencidos;
         });
 
+        if (this.sortField) {
+            const prioridadOrder = { 'Alta': 1, 'Media-Alta': 2, 'Media': 3, 'Baja': 4 };
+            const dir = this.sortDir;
+            const field = this.sortField;
+
+            this.filteredLeads.sort((a, b) => {
+                let va = a[field] || '';
+                let vb = b[field] || '';
+
+                if (field === 'lead_score') {
+                    return (Number(va) - Number(vb)) * dir;
+                }
+                if (field === 'prioridad') {
+                    return ((prioridadOrder[va] || 99) - (prioridadOrder[vb] || 99)) * dir;
+                }
+                if (field === 'fecha_proxima_accion') {
+                    va = va.split(' ')[0] || '9999';
+                    vb = vb.split(' ')[0] || '9999';
+                }
+                return va.localeCompare(vb) * dir;
+            });
+        }
+
         this.renderTable();
+    },
+
+    sortBy(field) {
+        if (this.sortField === field) {
+            this.sortDir *= -1;
+        } else {
+            this.sortField = field;
+            this.sortDir = 1;
+        }
+        this.updateSortIndicators();
+        this.filterLeads();
+    },
+
+    updateSortIndicators() {
+        const sortable = ['nombre', 'operacion', 'estado_lead', 'prioridad', 'fecha_proxima_accion', 'lead_score'];
+        sortable.forEach(f => {
+            const el = document.getElementById('sort-' + f);
+            if (el) el.textContent = this.sortField === f ? (this.sortDir === 1 ? '\u25B2' : '\u25BC') : '';
+        });
     },
 
     toggleFilterVencidos() {
@@ -167,10 +211,8 @@ const app = {
                     <div class="text-sm ${this.isVencido(lead) ? 'text-red-600 font-semibold' : 'text-gray-700'}">${lead.proxima_accion || '-'}</div>
                     <div class="text-xs ${this.isVencido(lead) ? 'text-red-500' : 'text-gray-400'}">${this.isVencido(lead) ? 'VENCIDA - ' : ''}${lead.fecha_proxima_accion || ''}</div>
                 </td>
-                <td class="px-4 py-3">
-                    <button onclick="event.stopPropagation(); app.openModal('${lead.lead_id}')" class="text-primary hover:text-secondary text-sm font-medium">
-                        Abrir
-                    </button>
+                <td class="px-4 py-3 text-center">
+                    <span class="text-sm font-semibold text-gray-700">${lead.lead_score || '-'}</span>
                 </td>
             </tr>
         `).join('');
