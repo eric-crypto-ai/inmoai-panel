@@ -206,6 +206,10 @@ const app = {
             ` : ''}
         `;
 
+        // Reset estado dropdown
+        const estadoSelect = document.getElementById('action-estado');
+        if (estadoSelect) estadoSelect.selectedIndex = 0;
+
         document.getElementById('lead-modal').classList.remove('hidden');
     },
 
@@ -224,13 +228,8 @@ const app = {
         let params = {};
 
         if (type === 'estado') {
-            const nuevo = prompt(
-                'Nuevo estado del lead:\n\n' +
-                '1. Contactado\n2. Seguimiento\n3. Visita agendada\n4. Cerrado Ganado\n5. Cerrado Perdido\n6. Descartado\n\n' +
-                'Escribe el estado exacto:'
-            );
-            if (!nuevo) return;
-            params.nuevo_estado = nuevo;
+            // Estado se maneja desde actionEstado()
+            return;
         }
 
         if (type === 'agente') {
@@ -258,8 +257,32 @@ const app = {
             }
         }
 
+        this._sendAction(type, params);
+    },
+
+    // -------------------------------------------
+    // Acción: cambiar estado desde dropdown
+    // -------------------------------------------
+    actionEstado(selectEl) {
+        const nuevoEstado = selectEl.value;
+        if (!nuevoEstado || !this.selectedLead) {
+            selectEl.selectedIndex = 0;
+            return;
+        }
+        // Reset select for next use
+        selectEl.selectedIndex = 0;
+        // Execute the action with params
+        this._sendAction('estado', { nuevo_estado: nuevoEstado });
+    },
+
+    // -------------------------------------------
+    // Enviar acción al webhook
+    // -------------------------------------------
+    async _sendAction(type, params) {
+        if (!this.selectedLead) return;
+
         if (CONFIG.DEMO_MODE) {
-            alert(`[DEMO] Acción "${type}" sobre lead ${this.selectedLead.lead_id}\nParams: ${JSON.stringify(params)}\n\nConecta los webhooks de n8n para ejecutar acciones reales.`);
+            alert(`[DEMO] Acción "${type}" sobre lead ${this.selectedLead.lead_id}\nParams: ${JSON.stringify(params)}`);
             return;
         }
 
