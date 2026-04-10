@@ -22,6 +22,9 @@ const CONFIG = {
     // Webhook GET para listar documentos de un lead
     WEBHOOK_LIST_DOCS: 'https://primary-production-2cf7.up.railway.app/webhook/panel-docs',
 
+    // Webhook GET para leer opciones validadas desde config (prioridades, canales, etc.)
+    WEBHOOK_GET_CONFIG_OPCIONES: 'https://primary-production-2cf7.up.railway.app/webhook/panel-config-opciones',
+
     // Intervalo de auto-refresh en ms (0 = desactivado)
     AUTO_REFRESH_INTERVAL: 0,
 

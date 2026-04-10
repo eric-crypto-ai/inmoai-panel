@@ -6,6 +6,8 @@ const app = {
     leads: [],
     filteredLeads: [],
     acciones: [],
+    configOpciones: null, // {prioridades, proximas_acciones, canales}
+    pendingAccionId: null, // acción seleccionada pendiente de ejecutar
     selectedLead: null,
     filteringVencidos: false,
     sortField: null,
@@ -17,6 +19,7 @@ const app = {
     init() {
         this.loadLeads();
         this.loadConfigAcciones();
+        this.loadConfigOpciones();
         if (CONFIG.AUTO_REFRESH_INTERVAL > 0) {
             setInterval(() => this.loadLeads(), CONFIG.AUTO_REFRESH_INTERVAL);
         }
@@ -94,15 +97,96 @@ const app = {
     },
 
     // -------------------------------------------
-    // Acción genérica desde dropdown de acciones
+    // Carga de opciones validadas desde hoja config
     // -------------------------------------------
-    actionAccion(selectEl) {
+    async loadConfigOpciones() {
+        if (CONFIG.DEMO_MODE || !CONFIG.WEBHOOK_GET_CONFIG_OPCIONES) return;
+        try {
+            const res = await fetch(CONFIG.WEBHOOK_GET_CONFIG_OPCIONES);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const raw = await res.json();
+            this.configOpciones = Array.isArray(raw) ? raw[0] : raw;
+        } catch (err) {
+            console.error('Error cargando config opciones:', err);
+        }
+    },
+
+    // -------------------------------------------
+    // Acción seleccionada: muestra panel de personalización
+    // -------------------------------------------
+    onAccionSelected(selectEl) {
         const accionId = selectEl.value;
         if (!accionId || !this.selectedLead) {
             selectEl.selectedIndex = 0;
             return;
         }
-        selectEl.selectedIndex = 0;
+
+        const config = this.acciones.find(a => a.accion_id === accionId);
+        if (!config) return;
+
+        this.pendingAccionId = accionId;
+
+        // Mostrar panel de personalización
+        const panel = document.getElementById('customize-panel');
+        const nombre = document.getElementById('customize-accion-nombre');
+        if (panel) panel.classList.remove('hidden');
+        if (nombre) nombre.textContent = config.nombre_accion;
+
+        // Reset toggle y campos
+        const toggle = document.getElementById('customize-toggle');
+        if (toggle) toggle.checked = false;
+        const fields = document.getElementById('customize-fields');
+        if (fields) fields.classList.add('hidden');
+
+        // Poblar dropdowns con datos validados de config
+        this._populateCustomizeDropdowns();
+    },
+
+    _populateCustomizeDropdowns() {
+        const opts = this.configOpciones || {};
+
+        const prioSelect = document.getElementById('customize-prioridad');
+        if (prioSelect) {
+            prioSelect.innerHTML = (opts.prioridades || ['Alta', 'Media-Alta', 'Media', 'Baja'])
+                .map(p => `<option value="${p}">${p}</option>`).join('');
+        }
+
+        const proxSelect = document.getElementById('customize-proxima');
+        if (proxSelect) {
+            proxSelect.innerHTML = (opts.proximas_acciones || ['Llamar', 'Hacer seguimiento', 'Ninguna'])
+                .map(p => `<option value="${p}">${p}</option>`).join('');
+        }
+
+        const canalSelect = document.getElementById('customize-canal');
+        if (canalSelect) {
+            canalSelect.innerHTML = (opts.canales || ['WhatsApp', 'Llamada', 'Email', 'Indiferente'])
+                .map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+
+        // Reset checkboxes y fecha
+        const calCb = document.getElementById('customize-calendar');
+        const notCb = document.getElementById('customize-notificar');
+        const recCb = document.getElementById('customize-recordatorio');
+        if (calCb) calCb.checked = false;
+        if (notCb) notCb.checked = false;
+        if (recCb) recCb.checked = false;
+        const fechaInput = document.getElementById('customize-fecha');
+        const horaInput = document.getElementById('customize-hora');
+        if (fechaInput) fechaInput.value = '';
+        if (horaInput) horaInput.value = '09:00';
+    },
+
+    toggleCustomize() {
+        const fields = document.getElementById('customize-fields');
+        const toggle = document.getElementById('customize-toggle');
+        if (fields && toggle) {
+            fields.classList.toggle('hidden', !toggle.checked);
+        }
+    },
+
+    executeCustomAction() {
+        const accionId = this.pendingAccionId;
+        if (!accionId || !this.selectedLead) return;
 
         const config = this.acciones.find(a => a.accion_id === accionId);
         if (!config) return;
@@ -112,9 +196,11 @@ const app = {
         }
 
         let params = {};
+
+        // Fecha de visita para agendar_visita (siempre necesaria)
         if (config.necesita_fecha || accionId === 'agendar_visita') {
-            const fecha = document.getElementById('action-visita-fecha').value;
-            const hora = document.getElementById('action-visita-hora').value || '10:00';
+            const fecha = document.getElementById('customize-fecha')?.value;
+            const hora = document.getElementById('customize-hora')?.value || '10:00';
             if (!fecha) {
                 alert('Selecciona una fecha para la visita');
                 return;
@@ -123,7 +209,41 @@ const app = {
             params.hora_visita = hora;
         }
 
+        // Si personalización activada, añadir overrides
+        const toggle = document.getElementById('customize-toggle');
+        if (toggle && toggle.checked) {
+            const overrides = {};
+
+            const prioridad = document.getElementById('customize-prioridad')?.value;
+            if (prioridad) overrides.prioridad = prioridad;
+
+            const proxima = document.getElementById('customize-proxima')?.value;
+            if (proxima) overrides.proxima_accion = proxima;
+
+            const fecha = document.getElementById('customize-fecha')?.value;
+            const hora = document.getElementById('customize-hora')?.value || '09:00';
+            if (fecha) overrides.fecha_proxima_accion = fecha + ' ' + hora;
+
+            const canal = document.getElementById('customize-canal')?.value;
+            if (canal) overrides.canal_sugerido = canal;
+
+            overrides.crear_evento_calendar = document.getElementById('customize-calendar')?.checked || false;
+            overrides.notificar_agente = document.getElementById('customize-notificar')?.checked || false;
+            overrides.generar_recordatorio = document.getElementById('customize-recordatorio')?.checked || false;
+
+            params.overrides = overrides;
+        }
+
         this._sendAction(accionId, params);
+        this.cancelCustomAction();
+    },
+
+    cancelCustomAction() {
+        this.pendingAccionId = null;
+        const panel = document.getElementById('customize-panel');
+        if (panel) panel.classList.add('hidden');
+        const select = document.getElementById('action-accion');
+        if (select) select.selectedIndex = 0;
     },
 
     // -------------------------------------------
@@ -390,10 +510,7 @@ const app = {
         if (accionSelect) accionSelect.selectedIndex = 0;
         const agenteSelect = document.getElementById('action-agente');
         if (agenteSelect) agenteSelect.selectedIndex = 0;
-        const visitaFecha = document.getElementById('action-visita-fecha');
-        if (visitaFecha) visitaFecha.value = '';
-        const visitaHora = document.getElementById('action-visita-hora');
-        if (visitaHora) visitaHora.value = '10:00';
+        this.cancelCustomAction();
 
         document.getElementById('lead-modal').classList.remove('hidden');
 
@@ -505,6 +622,7 @@ const app = {
     closeModal() {
         document.getElementById('lead-modal').classList.add('hidden');
         this.selectedLead = null;
+        this.cancelCustomAction();
     },
 
     // -------------------------------------------
@@ -522,7 +640,7 @@ const app = {
         this._sendAction(type, params);
     },
 
-    // (actionEstado eliminado — reemplazado por actionAccion)
+    // (actionEstado eliminado — reemplazado por onAccionSelected)
 
     // -------------------------------------------
     // Acción: guardar notas
@@ -534,7 +652,7 @@ const app = {
         this._sendAction('notas', { notas: notas });
     },
 
-    // (actionVisita eliminado — integrado en actionAccion con agendar_visita)
+    // (actionVisita eliminado — integrado en onAccionSelected con agendar_visita)
 
     // -------------------------------------------
     // Acción: asignar agente desde dropdown

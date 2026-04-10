@@ -159,13 +159,9 @@
             <div id="modal-actions" class="p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
                 <p class="text-sm font-semibold text-gray-700 mb-3">Acciones rápidas</p>
                 <div class="flex flex-wrap gap-2 items-center">
-                    <select id="action-accion" onchange="app.actionAccion(this)" class="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary transition cursor-pointer appearance-none pr-8" style="background-image: url('data:image/svg+xml;utf8,<svg fill=\'white\' viewBox=\'0 0 20 20\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z\'/></svg>'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1.2em;">
+                    <select id="action-accion" onchange="app.onAccionSelected(this)" class="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary transition cursor-pointer appearance-none pr-8" style="background-image: url('data:image/svg+xml;utf8,<svg fill=\'white\' viewBox=\'0 0 20 20\' xmlns=\'http://www.w3.org/2000/svg\'><path d=\'M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z\'/></svg>'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1.2em;">
                         <option value="" disabled selected>Ejecutar acción...</option>
                     </select>
-                    <div class="flex items-center gap-1">
-                        <input type="date" id="action-visita-fecha" class="border border-blue-300 rounded-lg px-2 py-2 text-sm bg-white text-gray-700 focus:ring-2 focus:ring-primary">
-                        <input type="time" id="action-visita-hora" value="10:00" class="border border-blue-300 rounded-lg px-2 py-2 text-sm bg-white text-gray-700 focus:ring-2 focus:ring-primary w-24">
-                    </div>
                     <button onclick="app.action('whatsapp')" class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition">
                         Enviar WhatsApp
                     </button>
@@ -175,6 +171,68 @@
                         <option value="Eric Castillo">Eric Castillo</option>
                         <option value="Rodrigo Lopez">Rodrigo Lopez</option>
                     </select>
+                </div>
+
+                <!-- Panel de personalización de acción -->
+                <div id="customize-panel" class="hidden mt-4 bg-white border border-gray-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-sm font-semibold text-gray-700">
+                            Acción: <span id="customize-accion-nombre" class="text-primary"></span>
+                        </p>
+                        <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                            <input type="checkbox" id="customize-toggle" onchange="app.toggleCustomize()" class="rounded border-gray-300 text-primary focus:ring-primary">
+                            Personalizar
+                        </label>
+                    </div>
+
+                    <!-- Campos de personalización (ocultos hasta activar toggle) -->
+                    <div id="customize-fields" class="hidden grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="text-xs text-gray-500">Prioridad</label>
+                            <select id="customize-prioridad" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500">Próxima acción</label>
+                            <select id="customize-proxima" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500">Fecha próxima acción</label>
+                            <div class="flex gap-1">
+                                <input type="date" id="customize-fecha" class="flex-1 border border-gray-300 rounded px-2 py-1.5 text-sm">
+                                <input type="time" id="customize-hora" value="09:00" class="w-20 border border-gray-300 rounded px-2 py-1.5 text-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500">Canal sugerido</label>
+                            <select id="customize-canal" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                            </select>
+                        </div>
+                        <div class="col-span-2 flex flex-wrap gap-4">
+                            <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+                                <input type="checkbox" id="customize-calendar" class="rounded border-gray-300 text-primary focus:ring-primary">
+                                Crear evento Calendar
+                            </label>
+                            <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+                                <input type="checkbox" id="customize-notificar" class="rounded border-gray-300 text-primary focus:ring-primary">
+                                Notificar agente
+                            </label>
+                            <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer">
+                                <input type="checkbox" id="customize-recordatorio" class="rounded border-gray-300 text-primary focus:ring-primary">
+                                Generar recordatorio
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button onclick="app.executeCustomAction()" class="bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-secondary transition">
+                            Ejecutar
+                        </button>
+                        <button onclick="app.cancelCustomAction()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition">
+                            Cancelar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
