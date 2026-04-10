@@ -358,6 +358,31 @@ const app = {
                 <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Historial de actividad</p>
                 <div class="text-sm text-gray-400 italic">Cargando actividad...</div>
             </div>
+            <div id="lead-docs" class="mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs text-gray-500 uppercase tracking-wider">Documentaci\u00f3n</p>
+                    <button onclick="app.toggleUploadForm()" class="text-xs text-primary hover:text-secondary font-medium">+ Subir documento</button>
+                </div>
+                <div id="upload-form" class="hidden mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div class="flex flex-wrap gap-2 mb-2 items-center">
+                        <select id="doc-category" onchange="app.updateDocTypes()" class="border border-gray-300 rounded px-2 py-1 text-sm">
+                            <option value="Identificaci\u00f3n">Identificaci\u00f3n</option>
+                            <option value="Inmueble">Inmueble</option>
+                            <option value="Financiero">Financiero</option>
+                            <option value="Contratos">Contratos</option>
+                            <option value="Proceso">Proceso</option>
+                            <option value="General">General</option>
+                        </select>
+                        <select id="doc-type" class="border border-gray-300 rounded px-2 py-1 text-sm"></select>
+                        <input type="file" id="doc-file" class="text-sm max-w-[200px]" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="app.uploadDoc()" id="btn-upload" class="bg-primary text-white px-3 py-1 rounded text-sm font-medium hover:bg-secondary">Subir</button>
+                        <button onclick="app.toggleUploadForm()" class="text-gray-500 px-3 py-1 rounded text-sm hover:text-gray-700">Cancelar</button>
+                    </div>
+                </div>
+                <div id="docs-list" class="text-sm text-gray-400 italic">Cargando documentos...</div>
+            </div>
         `;
 
         // Reset action controls
@@ -373,6 +398,7 @@ const app = {
         document.getElementById('lead-modal').classList.remove('hidden');
 
         this.loadActividad(lead.lead_id);
+        this.loadDocs(lead.lead_id);
     },
 
     async loadActividad(leadId) {
@@ -555,6 +581,153 @@ const app = {
             alert(`Error ejecutando acción: ${error.message}`);
             console.error('Error en acción:', error);
         }
+    },
+
+    // -------------------------------------------
+    // Documentación — Upload y listado
+    // -------------------------------------------
+    DOC_TYPES: {
+        'Identificación': ['DNI/NIE', 'Pasaporte', 'Otro'],
+        'Inmueble': ['Escrituras', 'Nota simple', 'Certificado energético', 'Cédula habitabilidad', 'IBI', 'Certificado comunidad', 'Planos', 'Fotos', 'Otro'],
+        'Financiero': ['Justificante ingresos', 'Pre-aprobación hipotecaria', 'Otro'],
+        'Contratos': ['Contrato mandato', 'Ficha visita', 'Propuesta/contraoferta', 'Contrato arras', 'Contrato compraventa', 'Contrato alquiler', 'Factura honorarios', 'Otro'],
+        'Proceso': ['Ficha visita firmada', 'Otro'],
+        'General': ['Otro']
+    },
+
+    toggleUploadForm() {
+        const form = document.getElementById('upload-form');
+        if (!form) return;
+        form.classList.toggle('hidden');
+        if (!form.classList.contains('hidden')) {
+            this.updateDocTypes();
+        }
+    },
+
+    updateDocTypes() {
+        const category = document.getElementById('doc-category')?.value || 'General';
+        const docTypeSelect = document.getElementById('doc-type');
+        if (!docTypeSelect) return;
+        const options = this.DOC_TYPES[category] || ['Otro'];
+        docTypeSelect.innerHTML = options.map(t => `<option value="${t}">${t}</option>`).join('');
+    },
+
+    async uploadDoc() {
+        const fileInput = document.getElementById('doc-file');
+        const category = document.getElementById('doc-category')?.value || 'General';
+        const docType = document.getElementById('doc-type')?.value || '';
+        const btn = document.getElementById('btn-upload');
+
+        if (!fileInput || !fileInput.files.length) {
+            alert('Selecciona un archivo');
+            return;
+        }
+        if (!this.selectedLead) return;
+
+        const file = fileInput.files[0];
+        if (file.size > 10 * 1024 * 1024) {
+            alert('El archivo no puede superar los 10 MB');
+            return;
+        }
+
+        if (btn) { btn.disabled = true; btn.textContent = 'Subiendo...'; }
+
+        try {
+            const base64 = await this.fileToBase64(file);
+            const response = await fetch(CONFIG.WEBHOOK_UPLOAD_DOC, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    lead_id: this.selectedLead.lead_id,
+                    lead_name: ((this.selectedLead.nombre || '') + ' ' + (this.selectedLead.apellidos || '')).trim(),
+                    category: category,
+                    doc_type: docType,
+                    fileName: file.name,
+                    mimeType: file.type || 'application/octet-stream',
+                    fileData: base64
+                })
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const result = await response.json();
+            alert(result.success ? 'Documento subido correctamente' : 'Error al subir documento');
+            this.toggleUploadForm();
+            fileInput.value = '';
+            this.loadDocs(this.selectedLead.lead_id);
+        } catch (error) {
+            alert('Error subiendo documento: ' + error.message);
+            console.error('Error upload doc:', error);
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Subir'; }
+        }
+    },
+
+    fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    },
+
+    async loadDocs(leadId) {
+        const container = document.getElementById('docs-list');
+        if (!container || CONFIG.DEMO_MODE) {
+            if (container) container.innerHTML = '<p class="text-sm text-gray-400 italic">Sin documentos (modo demo)</p>';
+            return;
+        }
+
+        try {
+            const res = await fetch(`${CONFIG.WEBHOOK_LIST_DOCS}?lead_id=${encodeURIComponent(leadId)}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const docs = data.docs || [];
+
+            if (!docs.length) {
+                container.innerHTML = '<p class="text-sm text-gray-400 italic">Sin documentos</p>';
+                return;
+            }
+
+            const grouped = {};
+            docs.forEach(d => {
+                const cat = d.category || 'General';
+                if (!grouped[cat]) grouped[cat] = [];
+                grouped[cat].push(d);
+            });
+
+            let html = '<div class="space-y-2">';
+            for (const [cat, catDocs] of Object.entries(grouped)) {
+                html += `<div>
+                    <p class="text-xs font-semibold text-gray-600 mb-1">${cat}</p>
+                    <div class="ml-2 space-y-1">`;
+                catDocs.forEach(d => {
+                    const icon = this.docIcon(d.mimeType);
+                    const date = d.date ? new Date(d.date).toLocaleDateString('es-ES') : '';
+                    const label = d.doc_type ? d.doc_type + ' — ' + d.name : d.name;
+                    html += `<div class="flex items-center gap-2">
+                        <span class="shrink-0">${icon}</span>
+                        <a href="${d.url}" target="_blank" rel="noopener" class="text-sm text-primary hover:text-secondary hover:underline truncate">${label}</a>
+                        <span class="text-xs text-gray-400 shrink-0">${date}</span>
+                    </div>`;
+                });
+                html += '</div></div>';
+            }
+            html += '</div>';
+            container.innerHTML = html;
+        } catch (err) {
+            container.innerHTML = '<p class="text-sm text-red-400 italic">Error cargando documentos</p>';
+            console.error('Error loadDocs:', err);
+        }
+    },
+
+    docIcon(mimeType) {
+        if (!mimeType) return '\u{1F4C4}';
+        if (mimeType.includes('pdf')) return '\u{1F4D5}';
+        if (mimeType.includes('image')) return '\u{1F5BC}';
+        if (mimeType.includes('word') || mimeType.includes('document')) return '\u{1F4DD}';
+        if (mimeType.includes('sheet') || mimeType.includes('excel')) return '\u{1F4CA}';
+        return '\u{1F4C4}';
     },
 
     // -------------------------------------------
