@@ -649,7 +649,8 @@ const app = {
             });
 
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const result = await response.json();
+            const raw = await response.json();
+            const result = Array.isArray(raw) ? raw[0] : raw;
             alert(result.success ? 'Documento subido correctamente' : 'Error al subir documento');
             this.toggleUploadForm();
             fileInput.value = '';
@@ -681,7 +682,8 @@ const app = {
         try {
             const res = await fetch(`${CONFIG.WEBHOOK_LIST_DOCS}?lead_id=${encodeURIComponent(leadId)}`);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
+            const raw = await res.json();
+            const data = Array.isArray(raw) ? raw[0] : raw;
             const docs = data.docs || [];
 
             if (!docs.length) {
