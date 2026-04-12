@@ -692,13 +692,89 @@ const app = {
 
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const result = await response.json();
-            alert(result.message || `Acción "${type}" ejecutada correctamente`);
+            this._showActionResult(result, type);
             this.closeModal();
             this.loadLeads();
         } catch (error) {
             alert(`Error ejecutando acción: ${error.message}`);
             console.error('Error en acción:', error);
         }
+    },
+
+    // -------------------------------------------
+    // Mostrar resultado de acción (con sugerencia IA si existe)
+    // -------------------------------------------
+    _showActionResult(result, type) {
+        const sugerencia = result.sugerencia_mensaje;
+
+        // Sin sugerencia IA — comportamiento original
+        if (!sugerencia || sugerencia.error) {
+            alert(result.message || `Acción "${type}" ejecutada correctamente`);
+            return;
+        }
+
+        // Con sugerencia IA — mostrar modal rico
+        const canal = sugerencia.canal_recomendado || '';
+        const motivo = sugerencia.motivo_canal || '';
+        const msgWA = sugerencia.mensaje_whatsapp || '';
+        const asunto = sugerencia.asunto_email || '';
+        const msgEmail = sugerencia.mensaje_email || '';
+        const intencion = sugerencia.resumen_intencion || '';
+        const objetivo = sugerencia.siguiente_objetivo || '';
+
+        const canalIcon = canal === 'WhatsApp' ? '💬' : canal === 'Email' ? '📧' : '📞';
+
+        const html = `
+<div style="font-family:sans-serif;max-width:520px">
+  <div style="background:#d1fae5;border-left:4px solid #10b981;padding:12px 16px;margin-bottom:16px;border-radius:4px">
+    <strong style="color:#065f46">✓ Acción ejecutada correctamente</strong>
+  </div>
+
+  <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;margin-bottom:12px">
+    <div style="font-weight:600;color:#0369a1;margin-bottom:8px">Sugerencia de mensaje IA</div>
+    <div style="margin-bottom:8px"><strong>${canalIcon} Canal recomendado:</strong> ${canal}</div>
+    <div style="color:#64748b;font-size:13px;margin-bottom:12px">${motivo}</div>
+
+    ${msgWA ? `
+    <div style="margin-bottom:12px">
+      <div style="font-weight:600;margin-bottom:4px">💬 WhatsApp:</div>
+      <div id="ia-wa-text" style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:13px;line-height:1.5;white-space:pre-wrap">${msgWA}</div>
+      <button onclick="navigator.clipboard.writeText(document.getElementById('ia-wa-text').innerText).then(()=>this.textContent='Copiado ✓').catch(()=>{})" style="margin-top:6px;padding:4px 12px;background:#25d366;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px">Copiar WhatsApp</button>
+    </div>` : ''}
+
+    ${asunto ? `
+    <div>
+      <div style="font-weight:600;margin-bottom:4px">📧 Email:</div>
+      <div style="font-size:12px;color:#64748b;margin-bottom:4px">Asunto: <strong>${asunto}</strong></div>
+      <div id="ia-email-text" style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:13px;line-height:1.5;white-space:pre-wrap">${msgEmail}</div>
+      <button onclick="navigator.clipboard.writeText('Asunto: ${asunto.replace(/'/g, "\\'")}\\n\\n' + document.getElementById('ia-email-text').innerText).then(()=>this.textContent='Copiado ✓').catch(()=>{})" style="margin-top:6px;padding:4px 12px;background:#6366f1;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px">Copiar Email</button>
+    </div>` : ''}
+  </div>
+
+  ${intencion || objetivo ? `
+  <div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:6px;padding:12px;font-size:13px">
+    ${intencion ? `<div><strong>Intención:</strong> ${intencion}</div>` : ''}
+    ${objetivo ? `<div style="margin-top:4px"><strong>Objetivo:</strong> ${objetivo}</div>` : ''}
+  </div>` : ''}
+</div>`;
+
+        // Crear y mostrar un dialog personalizado
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+
+        const box = document.createElement('div');
+        box.style.cssText = 'background:#fff;border-radius:12px;padding:24px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)';
+        box.innerHTML = html;
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Cerrar';
+        closeBtn.style.cssText = 'margin-top:16px;width:100%;padding:10px;background:#374151;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px';
+        closeBtn.onclick = () => document.body.removeChild(overlay);
+
+        box.appendChild(closeBtn);
+        overlay.appendChild(box);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) document.body.removeChild(overlay); });
+        document.body.appendChild(overlay);
     },
 
     // -------------------------------------------
