@@ -156,19 +156,19 @@ const app = {
         const prioSelect = document.getElementById('customize-prioridad');
         if (prioSelect) {
             prioSelect.innerHTML = (opts.prioridades || ['Alta', 'Media-Alta', 'Media', 'Baja'])
-                .map(p => `<option value="${p}">${p}</option>`).join('');
+                .map(p => `<option value="${this._esc(p)}">${this._esc(p)}</option>`).join('');
         }
 
         const proxSelect = document.getElementById('customize-proxima');
         if (proxSelect) {
             proxSelect.innerHTML = (opts.proximas_acciones || ['Llamar', 'Hacer seguimiento', 'Ninguna'])
-                .map(p => `<option value="${p}">${p}</option>`).join('');
+                .map(p => `<option value="${this._esc(p)}">${this._esc(p)}</option>`).join('');
         }
 
         const canalSelect = document.getElementById('customize-canal');
         if (canalSelect) {
             canalSelect.innerHTML = (opts.canales || ['WhatsApp', 'Llamada', 'Email', 'Indiferente'])
-                .map(c => `<option value="${c}">${c}</option>`).join('');
+                .map(c => `<option value="${this._esc(c)}">${this._esc(c)}</option>`).join('');
         }
 
         // Reset checkboxes y fecha
@@ -343,6 +343,23 @@ const app = {
         return !!(search || estado || prio || agente || this.filteringVencidos);
     },
 
+    _formatPresupuesto(raw) {
+        if (raw === null || raw === undefined || raw === '') return null;
+        const num = Number(String(raw).replace(/[^\d.-]/g, ''));
+        if (!Number.isFinite(num)) return `${raw} €`;
+        return `${num.toLocaleString('es-ES')} €`;
+    },
+
+    _esc(v) {
+        if (v === null || v === undefined) return '';
+        return String(v)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    },
+
     // F3.6.8 S9 R3-14: reset de los 4 dropdowns + texto + checkbox vencidos
     clearFilters() {
         const ids = ['filter-search','filter-estado','filter-prioridad','filter-agente'];
@@ -415,34 +432,34 @@ const app = {
         }
 
         tbody.innerHTML = this.filteredLeads.map(lead => `
-            <tr class="${this.isVencido(lead) ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'} cursor-pointer transition" onclick="app.openModal('${lead.lead_id}')">
+            <tr class="${this.isVencido(lead) ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'} cursor-pointer transition" onclick="app.openModal('${this._esc(lead.lead_id)}')">
                 <td class="px-4 py-3">
-                    <div class="font-medium text-gray-900">${lead.nombre || ''} ${lead.apellidos || ''}</div>
-                    <div class="text-xs text-gray-400">${lead.lead_id || ''}</div>
+                    <div class="font-medium text-gray-900">${this._esc(lead.nombre || '')} ${this._esc(lead.apellidos || '')}</div>
+                    <div class="text-xs text-gray-400">${this._esc(lead.lead_id || '')}</div>
                 </td>
                 <td class="px-4 py-3">
-                    <div class="text-sm text-gray-700">${lead.email || '-'}</div>
-                    <div class="text-sm text-gray-500">${lead.telefono || '-'}</div>
+                    <div class="text-sm text-gray-700">${this._esc(lead.email || '-')}</div>
+                    <div class="text-sm text-gray-500">${this._esc(lead.telefono || '-')}</div>
                 </td>
                 <td class="px-4 py-3">
-                    <span class="text-sm text-gray-700">${lead.operacion || '-'}</span>
+                    <span class="text-sm text-gray-700">${this._esc(lead.operacion || '-')}</span>
                 </td>
                 <td class="px-4 py-3">
                     <span class="inline-block px-2 py-1 rounded-full text-xs font-medium ${this.getEstadoClass(lead.estado_lead)}">
-                        ${lead.estado_lead || '-'}
+                        ${this._esc(lead.estado_lead || '-')}
                     </span>
                 </td>
                 <td class="px-4 py-3">
                     <span class="inline-block px-2 py-1 rounded-full text-xs font-medium ${this.getPrioridadClass(lead.prioridad)}">
-                        ${lead.prioridad || '-'}
+                        ${this._esc(lead.prioridad || '-')}
                     </span>
                 </td>
                 <td class="px-4 py-3">
-                    <div class="text-sm ${this.isVencido(lead) ? 'text-red-600 font-semibold' : 'text-gray-700'}">${lead.proxima_accion || '-'}</div>
-                    <div class="text-xs ${this.isVencido(lead) ? 'text-red-500' : 'text-gray-400'}">${this.isVencido(lead) ? 'VENCIDA - ' : ''}${lead.fecha_proxima_accion || ''}</div>
+                    <div class="text-sm ${this.isVencido(lead) ? 'text-red-600 font-semibold' : 'text-gray-700'}">${this._esc(lead.proxima_accion || '-')}</div>
+                    <div class="text-xs ${this.isVencido(lead) ? 'text-red-500' : 'text-gray-400'}">${this.isVencido(lead) ? 'VENCIDA - ' : ''}${this._esc(lead.fecha_proxima_accion || '')}</div>
                 </td>
                 <td class="px-4 py-3 text-center">
-                    <span class="text-sm font-semibold text-gray-700">${lead.lead_score || '-'}</span>
+                    <span class="text-sm font-semibold text-gray-700">${this._esc(lead.lead_score || '-')}</span>
                 </td>
             </tr>
         `).join('');
@@ -467,7 +484,7 @@ const app = {
             { label: 'Zona de interés', value: lead.zona_interes },
             { label: 'Operación', value: lead.operacion },
             { label: 'Tipo inmueble', value: lead.tipo_inmueble },
-            { label: 'Presupuesto', value: lead.presupuesto ? `${lead.presupuesto} €` : null },
+            { label: 'Presupuesto', value: this._formatPresupuesto(lead.presupuesto) },
             { label: 'Estado', value: lead.estado_lead },
             { label: 'Prioridad', value: lead.prioridad },
             { label: 'Lead Score', value: lead.lead_score },
@@ -489,27 +506,27 @@ const app = {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 ${fields.filter(f => f.value).map(f => `
                     <div>
-                        <p class="text-xs text-gray-500 uppercase tracking-wider">${f.label}</p>
-                        <p class="text-sm font-medium text-gray-900">${f.value}</p>
+                        <p class="text-xs text-gray-500 uppercase tracking-wider">${this._esc(f.label)}</p>
+                        <p class="text-sm font-medium text-gray-900">${this._esc(f.value)}</p>
                     </div>
                 `).join('')}
             </div>
             ${mensaje ? `
                 <div class="mb-4">
                     <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Mensaje del lead</p>
-                    <p class="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">${mensaje}</p>
+                    <p class="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">${this._esc(mensaje)}</p>
                 </div>
             ` : ''}
             ${observaciones ? `
                 <div class="mb-4">
                     <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Observaciones IA</p>
-                    <p class="text-sm text-gray-700 bg-blue-50 p-3 rounded-lg">${observaciones}</p>
+                    <p class="text-sm text-gray-700 bg-blue-50 p-3 rounded-lg">${this._esc(observaciones)}</p>
                 </div>
             ` : ''}
             <div class="mb-4">
                 <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Notas</p>
                 <div class="flex gap-2">
-                    <textarea id="action-notas" rows="2" class="flex-1 text-sm text-gray-700 bg-yellow-50 p-3 rounded-lg border border-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-400" placeholder="Añadir nota...">${notas}</textarea>
+                    <textarea id="action-notas" rows="2" class="flex-1 text-sm text-gray-700 bg-yellow-50 p-3 rounded-lg border border-yellow-200 focus:outline-none focus:ring-2 focus:ring-yellow-400" placeholder="Añadir nota...">${this._esc(notas)}</textarea>
                     <button onclick="app.actionNotas()" class="self-end bg-yellow-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-yellow-600 transition whitespace-nowrap">Guardar</button>
                 </div>
             </div>
@@ -586,8 +603,8 @@ const app = {
                         return `<div class="flex items-start gap-2 text-sm border-l-2 ${e.estado === 'ERROR' ? 'border-red-300' : 'border-blue-200'} pl-2 py-1">
                             <span class="shrink-0">${icon}</span>
                             <div class="min-w-0">
-                                <span class="font-medium text-gray-700">${desc}</span>
-                                <span class="${statusColor} text-xs ml-1">${tiempo}</span>
+                                <span class="font-medium text-gray-700">${this._esc(desc)}</span>
+                                <span class="${statusColor} text-xs ml-1">${this._esc(tiempo)}</span>
                             </div>
                         </div>`;
                     }).join('')}
@@ -604,26 +621,58 @@ const app = {
     formatEvento(e) {
         const tipo = e.tipo_evento || '';
         switch (tipo) {
-            case 'cambio_estado':
-                return `Estado: ${e.valor_anterior || '?'} → ${e.valor_nuevo || '?'}`;
-            case 'visita_agendada':
-                return `Visita agendada`;
-            case 'asignacion_agente':
-                return `Agente: ${e.valor_nuevo || '?'}`;
-            case 'whatsapp_enviado':
-                return `WhatsApp enviado`;
-            case 'email_enviado':
-                return `Email enviado`;
-            case 'actualizacion_notas':
-                return `Notas actualizadas`;
-            case 'accion_ejecutada':
-                return e.detalle || `Acción: ${e.valor_nuevo || '?'}`;
             case 'lead_creado':
                 return `Lead creado`;
+            case 'error_lead_creado':
+                return `Error al crear lead`;
             case 'deduplicacion_email':
                 return `Deduplicado por email`;
             case 'deduplicacion_telefono':
                 return `Deduplicado por teléfono`;
+            case 'whatsapp_enviado':
+                return `WhatsApp enviado`;
+            case 'whatsapp_error':
+                return `Error enviando WhatsApp`;
+            case 'email_enviado':
+                return `Email enviado`;
+            case 'email_error':
+                return `Error enviando email`;
+            case 'cualificacion_ia_ok':
+                return `Cualificación IA completada`;
+            case 'cualificacion_ia_error':
+                return `Error en cualificación IA`;
+            case 'accion_ejecutada':
+                return e.detalle || `Acción: ${e.valor_nuevo || '?'}`;
+            case 'asignacion_agente':
+                return `Agente: ${e.valor_nuevo || '?'}`;
+            case 'actualizacion_notas':
+                return `Notas actualizadas`;
+            case 'agente_error':
+                return `Error asignando agente`;
+            case 'notas_error':
+                return `Error actualizando notas`;
+            case 'sugerencia_mensaje_ia_generada':
+                return `Sugerencia IA generada`;
+            case 'sugerencia_mensaje_ia_error':
+                return `Error en sugerencia IA`;
+            case 'error_payload_invalido':
+                return `Payload inválido`;
+            case 'error_lead_fuera_leads':
+                return `Lead no encontrado`;
+            case 'documento_subido':
+                return e.detalle || `Documento subido`;
+            case 'error_busqueda_sheets':
+                return `Error buscando en Sheets`;
+            case 'cambio_estado':
+                return `Estado: ${e.valor_anterior || '?'} → ${e.valor_nuevo || '?'}`;
+            case 'visita_agendada':
+                return `Visita agendada`;
+            case 'error_visita_sin_fecha':
+                return `Error: visita sin fecha`;
+            case 'error_calendar':
+                return `Error en Calendar`;
+            case 'lead_contactado':
+                return `Lead contactado`;
             default:
                 return e.detalle || tipo || 'Evento';
         }
@@ -631,18 +680,32 @@ const app = {
 
     eventoIcon(tipo) {
         const icons = {
+            'lead_creado': '\u{2728}',
+            'error_lead_creado': '\u{26A0}',
+            'deduplicacion_email': '\u{1F501}',
+            'deduplicacion_telefono': '\u{1F501}',
+            'whatsapp_enviado': '\u{1F4AC}',
+            'whatsapp_error': '\u{26A0}',
+            'email_enviado': '\u{2709}',
+            'email_error': '\u{26A0}',
+            'cualificacion_ia_ok': '\u{1F9E0}',
+            'cualificacion_ia_error': '\u{26A0}',
+            'accion_ejecutada': '\u{26A1}',
+            'asignacion_agente': '\u{1F464}',
+            'actualizacion_notas': '\u{1F4DD}',
+            'agente_error': '\u{26A0}',
+            'notas_error': '\u{26A0}',
+            'sugerencia_mensaje_ia_generada': '\u{1F4A1}',
+            'sugerencia_mensaje_ia_error': '\u{26A0}',
+            'error_payload_invalido': '\u{26A0}',
+            'error_lead_fuera_leads': '\u{26A0}',
+            'documento_subido': '\u{1F4CE}',
+            'error_busqueda_sheets': '\u{26A0}',
             'cambio_estado': '\u{1F504}',
             'visita_agendada': '\u{1F4C5}',
-            'asignacion_agente': '\u{1F464}',
-            'whatsapp_enviado': '\u{1F4AC}',
-            'email_enviado': '\u{2709}',
-            'actualizacion_notas': '\u{1F4DD}',
-            'lead_creado': '\u{2728}',
-            'whatsapp_error': '\u{26A0}',
-            'email_error': '\u{26A0}',
             'error_visita_sin_fecha': '\u{26A0}',
             'error_calendar': '\u{26A0}',
-            'accion_ejecutada': '\u{26A1}',
+            'lead_contactado': '\u{1F4DE}',
         };
         return icons[tipo] || '\u{25CF}';
     },
@@ -775,29 +838,29 @@ const app = {
 
   <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;margin-bottom:12px">
     <div style="font-weight:600;color:#0369a1;margin-bottom:8px">Sugerencia de mensaje IA</div>
-    <div style="margin-bottom:8px"><strong>${canalIcon} Canal recomendado:</strong> ${canal}</div>
-    <div style="color:#64748b;font-size:13px;margin-bottom:12px">${motivo}</div>
+    <div style="margin-bottom:8px"><strong>${canalIcon} Canal recomendado:</strong> ${this._esc(canal)}</div>
+    <div style="color:#64748b;font-size:13px;margin-bottom:12px">${this._esc(motivo)}</div>
 
     ${msgWA ? `
     <div style="margin-bottom:12px">
       <div style="font-weight:600;margin-bottom:4px">💬 WhatsApp:</div>
-      <div id="ia-wa-text" style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:13px;line-height:1.5;white-space:pre-wrap">${msgWA}</div>
+      <div id="ia-wa-text" style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:13px;line-height:1.5;white-space:pre-wrap">${this._esc(msgWA)}</div>
       <button onclick="navigator.clipboard.writeText(document.getElementById('ia-wa-text').innerText).then(()=>this.textContent='Copiado ✓').catch(()=>{})" style="margin-top:6px;padding:4px 12px;background:#25d366;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px">Copiar WhatsApp</button>
     </div>` : ''}
 
     ${asunto ? `
     <div>
       <div style="font-weight:600;margin-bottom:4px">📧 Email:</div>
-      <div style="font-size:12px;color:#64748b;margin-bottom:4px">Asunto: <strong>${asunto}</strong></div>
-      <div id="ia-email-text" style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:13px;line-height:1.5;white-space:pre-wrap">${msgEmail}</div>
-      <button onclick="navigator.clipboard.writeText('Asunto: ${asunto.replace(/'/g, "\\'")}\\n\\n' + document.getElementById('ia-email-text').innerText).then(()=>this.textContent='Copiado ✓').catch(()=>{})" style="margin-top:6px;padding:4px 12px;background:#6366f1;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px">Copiar Email</button>
+      <div style="font-size:12px;color:#64748b;margin-bottom:4px">Asunto: <strong id="ia-email-asunto">${this._esc(asunto)}</strong></div>
+      <div id="ia-email-text" style="background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:10px;font-size:13px;line-height:1.5;white-space:pre-wrap">${this._esc(msgEmail)}</div>
+      <button onclick="navigator.clipboard.writeText('Asunto: ' + document.getElementById('ia-email-asunto').innerText + '\\n\\n' + document.getElementById('ia-email-text').innerText).then(()=>this.textContent='Copiado ✓').catch(()=>{})" style="margin-top:6px;padding:4px 12px;background:#6366f1;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px">Copiar Email</button>
     </div>` : ''}
   </div>
 
   ${intencion || objetivo ? `
   <div style="background:#fafafa;border:1px solid #e2e8f0;border-radius:6px;padding:12px;font-size:13px">
-    ${intencion ? `<div><strong>Intención:</strong> ${intencion}</div>` : ''}
-    ${objetivo ? `<div style="margin-top:4px"><strong>Objetivo:</strong> ${objetivo}</div>` : ''}
+    ${intencion ? `<div><strong>Intención:</strong> ${this._esc(intencion)}</div>` : ''}
+    ${objetivo ? `<div style="margin-top:4px"><strong>Objetivo:</strong> ${this._esc(objetivo)}</div>` : ''}
   </div>` : ''}
 </div>`;
 
@@ -846,7 +909,7 @@ const app = {
         const docTypeSelect = document.getElementById('doc-type');
         if (!docTypeSelect) return;
         const options = this.DOC_TYPES[category] || ['Otro'];
-        docTypeSelect.innerHTML = options.map(t => `<option value="${t}">${t}</option>`).join('');
+        docTypeSelect.innerHTML = options.map(t => `<option value="${this._esc(t)}">${this._esc(t)}</option>`).join('');
     },
 
     async uploadDoc() {
@@ -940,16 +1003,17 @@ const app = {
             let html = '<div class="space-y-2">';
             for (const [cat, catDocs] of Object.entries(grouped)) {
                 html += `<div>
-                    <p class="text-xs font-semibold text-gray-600 mb-1">${cat}</p>
+                    <p class="text-xs font-semibold text-gray-600 mb-1">${this._esc(cat)}</p>
                     <div class="ml-2 space-y-1">`;
                 catDocs.forEach(d => {
                     const icon = this.docIcon(d.mimeType);
                     const date = d.date ? new Date(d.date).toLocaleDateString('es-ES') : '';
                     const label = d.doc_type ? d.doc_type + ' — ' + d.name : d.name;
+                    const safeUrl = /^https?:\/\//i.test(d.url || '') ? d.url : '#';
                     html += `<div class="flex items-center gap-2">
                         <span class="shrink-0">${icon}</span>
-                        <a href="${d.url}" target="_blank" rel="noopener" class="text-sm text-primary hover:text-secondary hover:underline truncate">${label}</a>
-                        <span class="text-xs text-gray-400 shrink-0">${date}</span>
+                        <a href="${this._esc(safeUrl)}" target="_blank" rel="noopener" class="text-sm text-primary hover:text-secondary hover:underline truncate">${this._esc(label)}</a>
+                        <span class="text-xs text-gray-400 shrink-0">${this._esc(date)}</span>
                     </div>`;
                 });
                 html += '</div></div>';
