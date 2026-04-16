@@ -17,9 +17,17 @@ const app = {
     // Inicialización
     // -------------------------------------------
     init() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('inmoai_sort') || 'null');
+            if (saved && saved.field) {
+                this.sortField = saved.field;
+                this.sortDir = saved.dir === -1 ? -1 : 1;
+            }
+        } catch (e) {}
         this.loadLeads();
         this.loadConfigAcciones();
         this.loadConfigOpciones();
+        this.updateSortIndicators();
         if (CONFIG.AUTO_REFRESH_INTERVAL > 0) {
             setInterval(() => this.loadLeads(), CONFIG.AUTO_REFRESH_INTERVAL);
         }
@@ -272,7 +280,9 @@ const app = {
                 (lead.nombre || '').toLowerCase().includes(search) ||
                 (lead.apellidos || '').toLowerCase().includes(search) ||
                 (lead.email || '').toLowerCase().includes(search) ||
-                (lead.telefono || '').includes(search);
+                (lead.telefono || '').includes(search) ||
+                (lead.municipio || '').toLowerCase().includes(search) ||
+                (lead.zona_interes || '').toLowerCase().includes(search);
             const matchEstado = !estado || lead.estado_lead === estado;
             const matchPrioridad = !prioridad || lead.prioridad === prioridad;
             const matchAgente = !agente || lead.agente_asignado === agente;
@@ -304,6 +314,41 @@ const app = {
         }
 
         this.renderTable();
+        this.updateVencidosCard();
+    },
+
+    // F3.6.8 S9 R3-17: el contador "Tareas vencidas" respeta los filtros activos
+    updateVencidosCard() {
+        const base = (this._anyFilterActive()) ? this.filteredLeads : this.leads;
+        const vencidos = base.filter(l => this.isVencido(l)).length;
+        const el = document.getElementById('stat-vencidos');
+        if (el) el.textContent = vencidos;
+        const card = document.getElementById('stat-vencidos-card');
+        if (card) {
+            if (vencidos > 0) {
+                card.classList.add('border-red-300', 'bg-red-50');
+                card.classList.remove('border-gray-100', 'bg-white');
+            } else {
+                card.classList.remove('border-red-300', 'bg-red-50');
+                card.classList.add('border-gray-100', 'bg-white');
+            }
+        }
+    },
+
+    _anyFilterActive() {
+        const search = document.getElementById('filter-search')?.value || '';
+        const estado = document.getElementById('filter-estado')?.value || '';
+        const prio = document.getElementById('filter-prioridad')?.value || '';
+        const agente = document.getElementById('filter-agente')?.value || '';
+        return !!(search || estado || prio || agente || this.filteringVencidos);
+    },
+
+    // F3.6.8 S9 R3-14: reset de los 4 dropdowns + texto + checkbox vencidos
+    clearFilters() {
+        const ids = ['filter-search','filter-estado','filter-prioridad','filter-agente'];
+        ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        if (this.filteringVencidos) this.toggleFilterVencidos();
+        else this.filterLeads();
     },
 
     sortBy(field) {
@@ -313,6 +358,9 @@ const app = {
             this.sortField = field;
             this.sortDir = 1;
         }
+        try {
+            localStorage.setItem('inmoai_sort', JSON.stringify({ field: this.sortField, dir: this.sortDir }));
+        } catch (e) {}
         this.updateSortIndicators();
         this.filterLeads();
     },
@@ -347,16 +395,7 @@ const app = {
             this.leads.filter(l => ['Contactado', 'Caliente', 'Templado', 'Frío', 'Seguimiento', 'Información enviada', 'Oferta enviada'].includes(l.estado_lead)).length;
         document.getElementById('stat-visitas').textContent =
             this.leads.filter(l => l.estado_lead === 'Visita agendada').length;
-        const vencidos = this.leads.filter(l => this.isVencido(l)).length;
-        document.getElementById('stat-vencidos').textContent = vencidos;
-        const card = document.getElementById('stat-vencidos-card');
-        if (vencidos > 0) {
-            card.classList.add('border-red-300', 'bg-red-50');
-            card.classList.remove('border-gray-100', 'bg-white');
-        } else {
-            card.classList.remove('border-red-300', 'bg-red-50');
-            card.classList.add('border-gray-100', 'bg-white');
-        }
+        this.updateVencidosCard();
     },
 
     // -------------------------------------------
@@ -521,6 +560,8 @@ const app = {
     async loadActividad(leadId) {
         const container = document.getElementById('lead-actividad');
         if (!container || CONFIG.DEMO_MODE) return;
+        if (this._loadingActividad === leadId) return;
+        this._loadingActividad = leadId;
 
         try {
             const res = await fetch(`${CONFIG.WEBHOOK_GET_ACTIVIDAD}?lead_id=${encodeURIComponent(leadId)}`);
@@ -555,6 +596,8 @@ const app = {
             container.innerHTML = `
                 <p class="text-xs text-gray-500 uppercase tracking-wider mb-2">Historial de actividad</p>
                 <p class="text-sm text-red-400 italic">Error cargando actividad</p>`;
+        } finally {
+            this._loadingActividad = null;
         }
     },
 
@@ -872,6 +915,8 @@ const app = {
             if (container) container.innerHTML = '<p class="text-sm text-gray-400 italic">Sin documentos (modo demo)</p>';
             return;
         }
+        if (this._loadingDocs === leadId) return;
+        this._loadingDocs = leadId;
 
         try {
             const res = await fetch(`${CONFIG.WEBHOOK_LIST_DOCS}?lead_id=${encodeURIComponent(leadId)}`);
@@ -914,6 +959,8 @@ const app = {
         } catch (err) {
             container.innerHTML = '<p class="text-sm text-red-400 italic">Error cargando documentos</p>';
             console.error('Error loadDocs:', err);
+        } finally {
+            this._loadingDocs = null;
         }
     },
 
