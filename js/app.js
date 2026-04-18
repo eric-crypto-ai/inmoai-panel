@@ -784,6 +784,9 @@ const app = {
             return;
         }
 
+        // F4.3 F3 — OBS-L2-R2-12: idempotency_token UUID v4 por click (dedupe motor WF_D).
+        const idempotency_token = crypto.randomUUID();
+
         try {
             const response = await fetch(CONFIG.WEBHOOK_POST_ACTION, {
                 method: 'POST',
@@ -793,6 +796,7 @@ const app = {
                     lead_id: this.selectedLead.lead_id,
                     lead: this.selectedLead,
                     params: params,
+                    idempotency_token: idempotency_token,
                 }),
             });
 
